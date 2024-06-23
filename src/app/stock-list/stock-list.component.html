@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Carteira de Ações</title>
+    <style>
+        .mat-elevation-z8 {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        .mat-elevation-z8 th, .mat-elevation-z8 td {
+            border: 1px solid black;
+            padding: 8px;
+            text-align: left;
+        }
+        .header-row {
+            font-weight: bold;
+        }
+        .positive {
+            color: green;
+        }
+        .negative {
+            color: red;
+        }
+        .neutral {
+            color: black;
+        }
+    </style>
+</head>
+<body>
+    <table id="stock-table" class="mat-elevation-z8">
+        <thead>
+            <tr>
+                <th>Ticker</th>
+                <th>Empresa</th>
+                <th>Data da Compra</th>
+                <th>QT</th>
+                <th>PU</th>
+                <th>Total</th>
+                <th>Cotação do Dia</th>
+                <th>Valor</th>
+                <th>Variação (%)</th>
+            </tr>
+        </thead>
+        <tbody>
+        </tbody>
+        <tfoot>
+            <tr>
+                <td colspan="5">TOTAL</td>
+                <td id="total-acquisition"></td>
+                <td></td>
+                <td id="total-current"></td>
+                <td id="total-variation"></td>
+            </tr>
+        </tfoot>
+    </table>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/angular.js/1.8.2/angular.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/angular-material/1.2.9/angular-material.min.js"></script>
+    <script>
+        const apiKey = 'A45OQXI3017WEMEG';
+
+        const stocks = [
+            { ticker: 'AAPL', company: 'Apple Inc.', purchaseDate: '2024-10-18', quantity: 20, purchasePrice: 340.00 },
+            { ticker: 'AMZN', company: 'Amazon.com', purchaseDate: '2024-05-25', quantity: 50, purchasePrice: 190.00 }
+        ];
+
+        function fetchStockData(stock) {
+            const url = `https://www.alphavantage.co/query?function=TIME_SERIES_DAILY&symbol=${stock.ticker}&apikey=${apiKey}`;
+            return fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    const timeSeries = data['Time Series (Daily)'];
+                    const latestDate = Object.keys(timeSeries)[0];
+                    const latestData = timeSeries[latestDate];
+                    const currentPrice = parseFloat(latestData['4. close']);
+                    return { ...stock, currentPrice };
+                });
+        }
+
+        function loadStocks(stocks) {
+            const tbody = document.querySelector('#stock-table tbody');
+            let totalAcquisitionValue = 0;
+            let totalCurrentValue = 0;
+
+            Promise.all(stocks.map(fetchStockData))
+                .then(stocksWithCurrentPrice => {
+                    stocksWithCurrentPrice.forEach(stock => {
+                        const total = stock.quantity * stock.purchasePrice;
+                        const currentValue = stock.quantity * stock.currentPrice;
+                        const variation = ((stock.currentPrice - stock.purchasePrice) / stock.purchasePrice) * 100;
+
+                        totalAcquisitionValue += total;
+                        totalCurrentValue += currentValue;
+
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                            <td>${stock.ticker}</td>
+                            <td>${stock.company}</td>
+                            <td>${stock.purchaseDate}</td>
+                            <td>${stock.quantity}</td>
+                            <td>${stock.purchasePrice.toFixed(2)}</td>
+                            <td>${total.toFixed(2)}</td>
+                            <td>${stock.currentPrice.toFixed(2)}</td>
+                            <td>${currentValue.toFixed(2)}</td>
+                            <td class="${variation > 0 ? 'positive' : variation < 0 ? 'negative' : 'neutral'}">${variation.toFixed(2)}%</td>
+                        `;
+                        tbody.appendChild(tr);
+                    });
+
+                    document.getElementById('total-acquisition').textContent = totalAcquisitionValue.toFixed(2);
+                    document.getElementById('total-current').textContent = totalCurrentValue.toFixed(2);
+                    const totalVariation = ((totalCurrentValue - totalAcquisitionValue) / totalAcquisitionValue) * 100;
+                    document.getElementById('total-variation').textContent = totalVariation.toFixed(2) + '%';
+                })
+                .catch(error => console.error('Error loading stocks:', error));
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadStocks(stocks);
+        });
+    </script>
+</body>
+</html>
